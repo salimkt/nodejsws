@@ -35,8 +35,8 @@
 
       function sendMessage() {
         if (ws && ws.readyState === WebSocket.OPEN) {
-          const message = "Hello Server";
-          ws.send(message);
+          const message = { msg: "Hello Server", time: Date.now() * 1000000 };
+          ws.send(JSON.stringify(message));
           document.getElementById(
             "messages"
           ).innerHTML += `<p>Sent: ${message}</p>`;

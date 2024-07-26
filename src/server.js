@@ -1,4 +1,6 @@
 const WebSocket = require("ws");
+const { explaineCode, pushLogs, serializeMsg } = require("./commonUtils.js");
+// const { serialize } = require("v8");
 
 // Create a WebSocket server
 const wss = new WebSocket.Server({ port: 8080 });
@@ -10,13 +12,22 @@ wss.on("connection", function connection(ws) {
   // Event listener for messages from clients
   ws.on("message", function incoming(message) {
     console.log("received: %s", message);
-
+    let msg = JSON.parse(message);
+    if (message?.code) {
+      console.log("Code________");
+      msg = {
+        description: explaineCode(message.code),
+        ...message,
+      };
+      pushLogs(serializeMsg(msg), msg?.time);
+    }
+    pushLogs(serializeMsg(msg), msg.time);
     // Broadcast the received message to all connected clients
-    wss.clients.forEach(function each(client) {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(`Server received: ${message}`);
-      }
-    });
+    // wss.clients.forEach(function each(client) {
+    //   if (client.readyState === WebSocket.OPEN) {
+    //     client.send(`Server received: ${message}`);
+    //   }
+    // });
   });
 
   // Event listener for client disconnections

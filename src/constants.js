@@ -1,0 +1,27 @@
+const desc_table = {
+  "1:1": "Button Click success",
+  "1:2": "Button Click Failed",
+  "2:1": "TextInput success",
+  "2:2": "TextInput Failed",
+  "3:1": "Navigation Success",
+  "3:2": "Navigation Failed",
+  "4:1": "Scroll Success",
+  "4:2": "Scroll Failed",
+  "6:1": "Keyboard Visible",
+  "6:2": "Keyboard Hide",
+  "7:1": "Back Button Press success",
+  "7:2": "Back Button Press failed",
+  "8:1": "App crashed due to js exception",
+  "8:2": "App crashed due to native exception",
+  "9:1": "Websocket connected",
+  "9:2": "websocket closed",
+  "9:3": "websoket error",
+  "10:1": "App goes to background",
+  "10:2": "App comes to foreground",
+  "5:3": "Api response success",
+  "5:2": "Api request Failed",
+  "5:1": "Api request Success",
+  "5:4": "Api response Failed",
+};
+
+module.exports = { desc_table };
