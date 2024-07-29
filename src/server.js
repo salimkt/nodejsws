@@ -13,13 +13,14 @@ wss.on("connection", function connection(ws) {
   ws.on("message", function incoming(message) {
     console.log("received: %s", message);
     let msg = JSON.parse(message);
-    if (message?.code) {
+    if (msg?.code) {
       console.log("Code________");
       msg = {
-        description: explaineCode(message.code),
-        ...message,
+        ...msg,
+        description: explaineCode(msg.code)
       };
       pushLogs(serializeMsg(msg), msg?.time);
+      return;
     }
     pushLogs(serializeMsg(msg), msg.time);
     // Broadcast the received message to all connected clients
