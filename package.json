@@ -1,6 +1,28 @@
 {
+  "name": "rollup-template",
+  "version": "1.0.0",
+  "description": "",
+  "main": "./src/server.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "rollup -c rollup.config.js && mv dist/server.js dist/server.cjs",
+    "start": "yarn build && node dist/server.cjs"
+  },
+  "author": "",
+  "license": "ISC",
   "dependencies": {
     "axios": "^1.7.2",
     "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^26.0.1",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^15.1.0",
+    "rollup": "^3.26.1",
+    "rollup-plugin-terser": "^7.0.2"
+  },
+  "engines": {
+    "node": ">=16"
   }
 }
