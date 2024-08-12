@@ -6,26 +6,26 @@ const pushLogs = (message, epochNanoseconds) => {
   //   console.log(res);
   // });
   console.log(message);
-  // axios
-  //   .post("https://grafana.netstratum.com/loki/api/v1/push", {
-  //     "streams": [
-  //       {
-  //         "stream": {
-  //           "app": "mobile"  //Change app name
-  //         },
-  //         "values": [[epochNanoseconds + "", message]]
-  //       }
-  //     ]
-  //   })
-  //   .then(() => {
-  //     console.log("Grafana success");
-  //   })
-  //   .catch(() => {
-  //     console.log("Grafana fail");
-  //     setTimeout(() => {
-  //       pushLogs(message, epochNanoseconds);
-  //     }, 1000);
-  //   });
+  axios
+    .post("https://grafana.netstratum.com/loki/api/v1/push", {
+      streams: [
+        {
+          stream: {
+            app: "mobile", //Change app name
+          },
+          values: [[epochNanoseconds + "", message]],
+        },
+      ],
+    })
+    .then(() => {
+      console.log("Grafana success");
+    })
+    .catch(() => {
+      console.log("Grafana fail");
+      setTimeout(() => {
+        pushLogs(message, epochNanoseconds);
+      }, 1000);
+    });
 };
 
 const explaineCode = (code) => {
@@ -36,7 +36,7 @@ const serializeMsg = (msg) => {
   let formattedString = "";
   for (const key in msg) {
     if (msg.hasOwnProperty(key)) {
-      formattedString += `${key} = ${msg[key]} `;
+      formattedString += `${key} = ${typeof msg[key] == "string" ? msg[key] : JSON.stringify(msg[key])} `;
     }
   }
   return formattedString;

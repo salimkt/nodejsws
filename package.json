@@ -7,7 +7,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "rollup -c rollup.config.js && mv dist/server.js dist/server.cjs",
-    "start": "yarn build && node dist/server.cjs"
+    "start": "node dist/server.cjs"
   },
   "author": "",
   "license": "ISC",
