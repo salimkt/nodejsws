@@ -36,7 +36,9 @@ const serializeMsg = (msg) => {
   let formattedString = "";
   for (const key in msg) {
     if (msg.hasOwnProperty(key)) {
-      formattedString += `${key} = ${typeof msg[key] == "string" ? msg[key] : JSON.stringify(msg[key])} `;
+      formattedString += `${key}=${
+        typeof msg[key] == "string" ? msg[key] : JSON.stringify(msg[key])
+      } `;
     }
   }
   return formattedString;
