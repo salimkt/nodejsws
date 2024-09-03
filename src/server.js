@@ -1,9 +1,11 @@
 const WebSocket = require("ws");
 const { explaineCode, pushLogs, serializeMsg } = require("./commonUtils.js");
+const { startAppServer } = require("./app_server_utils.js");
+
 // const { serialize } = require("v8");
 
 // Create a WebSocket server
-const wss = new WebSocket.Server({ port: 8080 });
+const wss = new WebSocket.Server({ port: 8030 });
 
 // Event listener for new connections
 wss.on("connection", function connection(ws) {
@@ -17,7 +19,7 @@ wss.on("connection", function connection(ws) {
       console.log("Code________");
       msg = {
         ...msg,
-        description: explaineCode(msg.code)
+        description: explaineCode(msg.code),
       };
       pushLogs(serializeMsg(msg), msg?.time);
       return;
@@ -40,4 +42,5 @@ wss.on("connection", function connection(ws) {
   ws.send("Welcome to the WebSocket server!");
 });
 
-console.log("WebSocket server is running on ws://localhost:8080");
+startAppServer();
+console.log("WebSocket server is running on ws://localhost:8030");
