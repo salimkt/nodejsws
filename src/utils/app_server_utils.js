@@ -10,9 +10,11 @@ app.use(bodyParser.json());
 
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const { auth_url } = require("./configs");
+const { setToken } = require("./controller/helper");
+// const uri =
+//   "mongodb+srv://salimkt25:Oc6ShumcbZkcNdpT@cluster0.hlnc7.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 const uri =
   "mongodb+srv://salimkt25:Oc6ShumcbZkcNdpT@cluster0.hlnc7.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
   serverApi: {
@@ -35,21 +37,16 @@ client
 // Step 1: Generate Diffie-Hellman keys on the server
 const serverDH = crypto.createDiffieHellman(2048);
 const serverPublicKey = serverDH.generateKeys();
-// async function run() {
-//   try {
-//     // Connect the client to the server	(optional starting in v4.7)
-//     await client.connect();
-//     // Send a ping to confirm a successful connection
-//     await client.db("admin").command({ ping: 1 });
-//     console.log(
-//       "Pinged your deployment. You successfully connected to MongoDB!"
-//     );
-//   } finally {
-//     // Ensures that the client will close when you finish/error
-//     await client.close();
-//   }
-// }
-// run().catch(console.dir);
+
+//Flags
+let acc_timeout = null;
+let refresh_timeout = null;
+let token = {
+  access_token: "",
+  expires_in: 60,
+  refresh_expires_in: 59940,
+  refresh_token: "",
+};
 
 const startAppServer = () => {
   app.post("/key_exchange", async (req, res) => {
@@ -57,31 +54,34 @@ const startAppServer = () => {
     const serverSharedSecret = serverDH.computeSecret(p_key);
     console.log(serverSharedSecret.toString("hex"));
 
-    const existingUser = await db.collection("public_key").findOne({ username });
+    const existingUser = await db
+      .collection("public_key")
+      .findOne({ username });
     if (existingUser) {
-      const result = await db.collection("public_key").updateOne({ "username": username }, { $set: { "p_key": p_key } })
-      result ? res.json("success") : res.json("failed")
+      const result = await db
+        .collection("public_key")
+        .updateOne({ username }, { $set: { p_key: p_key } });
+      // result ? res.status(200).json("success") : res.status(400).json("failed");
     } else {
       const result = await db.collection("public_key").insertOne(req.body);
-      result ? res.json("success") : res.json("failed")
+      // result ? res.status(200).json("success") : res.status(400).json("failed");
     }
-    const serverPublicKey = serverDH.generateKeys();
-    res.json(JSON.stringify({ serverPublicKey: serverPublicKey.toString('hex') }))
-
+    // const serverPublicKey = serverDH.generateKeys();
+    res.json(
+      JSON.stringify({ serverPublicKey: serverPublicKey.toString("hex") })
+    );
   });
   // POST endpoint to handle login
   app.post("/signin", async (req, res) => {
     const { username, password } = req.body;
-    console.log(req.body);
+    console.log(req.body, auth_url);
     const headers = {
       "Content-Type": "application/x-www-form-urlencoded",
     };
     try {
       // Make a request to Keycloak's token endpoint
       const response = await axios.post(
-        "https://us1-dev.fohik.com/auth/realms/" +
-        "debugtrail" +
-        "/protocol/openid-connect/token",
+        auth_url + "debugtrail" + "/protocol/openid-connect/token",
         {
           client_id: "debugtrail",
           grant_type: "password",
@@ -102,15 +102,55 @@ const startAppServer = () => {
   });
 
   app.post("/signup", async (req, res) => {
-    const { username, password, email } = req.body;
-
+    const { username, email, first_name, last_name, company_name, password } =
+      req.body;
+    if (!acc_timeout) {
+      await generateToken();
+    }
+    // if (!acc_timeout) res.status(500).json("server token generate failed");
     try {
       // Check if the user already exists
       const existingUser = await db.collection("users").findOne({ email });
+      axios;
       if (existingUser) {
         return res
           .status(400)
           .json({ message: "User already exists with this email" });
+      } else {
+        const respons = await axios.post(
+          "https://us1-dev.fohik.com/auth/admin/realms/debugtrail/users",
+          {
+            username,
+            enabled: true,
+            firstName: first_name,
+            email,
+            emailVerified: true,
+            lastName: last_name,
+          }
+        );
+
+        const response = await axios.get(
+          "https://us1-dev.fohik.com/auth/admin/realms/debugtrail/users"
+        );
+
+        const user = response.data.filter((user) => user.username == username);
+
+        await axios.put(
+          `https://us1-dev.fohik.com/auth/admin/realms/debugtrail/users/${user[0].id}/reset-password`,
+          {
+            type: "password",
+            value: password,
+            temporary: false,
+          }
+        );
+        // Insert the user into the database
+        const result = await db.collection("users").insertOne(req.body);
+
+        // Send a success response
+        res.status(201).json({
+          message: "User registered successfully",
+          // userId: result.insertedId,
+        });
       }
 
       // Create a new user object
@@ -119,20 +159,11 @@ const startAppServer = () => {
       //     password: password, // In a real app, hash the password before saving
       //     email: email,
       //   };
-
-      // Insert the user into the database
-      const result = await db.collection("users").insertOne(req.body);
-
-      // Send a success response
-      res.status(201).json({
-        message: "User registered successfully",
-        userId: result.insertedId,
-      });
     } catch (error) {
       // Handle errors during signup
       res.status(500).json({
         message: "Error registering user",
-        error: error.message,
+        error: JSON.stringify(error),
       });
     }
   });
@@ -140,6 +171,48 @@ const startAppServer = () => {
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
   });
+};
+
+const generateToken = async () => {
+  clearTimeout(acc_timeout);
+  clearTimeout(refresh_timeout);
+  try {
+    const headers = {
+      "Content-Type": "application/x-www-form-urlencoded",
+    };
+    // Make a request to Keycloak's token endpoint
+    const response = await axios.post(
+      "https://us1-dev.fohik.com/auth/realms/master/protocol/openid-connect/token",
+      {
+        client_id: "admin-cli",
+        grant_type: "password",
+        username: "admin",
+        password: "admin",
+      },
+      { headers }
+    );
+    token = response.data;
+    setToken(token.access_token);
+    acc_timeout = setTimeout(() => {
+      acc_timeout = null;
+      refresh_timeout = setTimeout(() => {
+        refresh_timeout = null;
+      }, 59940000);
+    }, 60000);
+  } catch (_er) {
+    console.log(_er);
+  }
+};
+
+const refreshAuth = () => {
+  clearTimeout(acc_timeout);
+  clearTimeout(refresh_timeout);
+  acc_timeout = setTimeout(() => {
+    acc_timeout = null;
+    refresh_timeout = setTimeout(() => {
+      refresh_timeout = null;
+    }, 59940000);
+  }, 60000);
 };
 
 module.exports = { startAppServer };

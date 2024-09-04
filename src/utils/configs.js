@@ -5,5 +5,5 @@ const auths = {
   test: "https://us3-test.fohik.com/auth/realms/",
 };
 
-const auth_url = auths[env];
+const auth_url = auths[`${env}`];
 module.exports = { auth_url };
