@@ -56,7 +56,18 @@ const startAppServer = () => {
     const { username, p_key } = req.body;
     const serverSharedSecret = serverDH.computeSecret(p_key);
     console.log(serverSharedSecret.toString("hex"));
-    res.json({ server_p_key: serverPublicKey.toString("hex") });
+
+    const existingUser = await db.collection("public_key").findOne({ username });
+    if (existingUser) {
+      const result = await db.collection("public_key").updateOne({ "username": username }, { $set: { "p_key": p_key } })
+      result ? res.json("success") : res.json("failed")
+    } else {
+      const result = await db.collection("public_key").insertOne(req.body);
+      result ? res.json("success") : res.json("failed")
+    }
+    const serverPublicKey = serverDH.generateKeys();
+    res.json(JSON.stringify({ serverPublicKey: serverPublicKey.toString('hex') }))
+
   });
   // POST endpoint to handle login
   app.post("/signin", async (req, res) => {
@@ -69,8 +80,8 @@ const startAppServer = () => {
       // Make a request to Keycloak's token endpoint
       const response = await axios.post(
         "https://us1-dev.fohik.com/auth/realms/" +
-          "debugtrail" +
-          "/protocol/openid-connect/token",
+        "debugtrail" +
+        "/protocol/openid-connect/token",
         {
           client_id: "debugtrail",
           grant_type: "password",
