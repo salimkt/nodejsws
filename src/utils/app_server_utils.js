@@ -1,5 +1,7 @@
 const express = require("express");
 const bodyParser = require("body-parser");
+const crypto = require("crypto");
+const axios = require("axios");
 
 const app = express();
 // configure port of app server
@@ -7,6 +9,7 @@ const PORT = 3000;
 app.use(bodyParser.json());
 
 const { MongoClient, ServerApiVersion } = require("mongodb");
+const { auth_url } = require("./configs");
 const uri =
   "mongodb+srv://salimkt25:Oc6ShumcbZkcNdpT@cluster0.hlnc7.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 
@@ -29,6 +32,9 @@ client
     console.error("Failed to connect to MongoDB", err);
   });
 
+// Step 1: Generate Diffie-Hellman keys on the server
+const serverDH = crypto.createDiffieHellman(2048);
+const serverPublicKey = serverDH.generateKeys();
 // async function run() {
 //   try {
 //     // Connect the client to the server	(optional starting in v4.7)
@@ -46,33 +52,42 @@ client
 // run().catch(console.dir);
 
 const startAppServer = () => {
+  app.post("/key_exchange", async (req, res) => {
+    const { username, p_key } = req.body;
+    const serverSharedSecret = serverDH.computeSecret(p_key);
+    console.log(serverSharedSecret.toString("hex"));
+    res.json({ server_p_key: serverPublicKey.toString("hex") });
+  });
   // POST endpoint to handle login
   app.post("/signin", async (req, res) => {
     const { username, password } = req.body;
     console.log(req.body);
+    const headers = {
+      "Content-Type": "application/x-www-form-urlencoded",
+    };
+    try {
+      // Make a request to Keycloak's token endpoint
+      const response = await axios.post(
+        "https://us1-dev.fohik.com/auth/realms/" +
+          "debugtrail" +
+          "/protocol/openid-connect/token",
+        {
+          client_id: "debugtrail",
+          grant_type: "password",
+          username: username,
+          password: password,
+        },
+        { headers }
+      );
 
-    // try {
-    //   // Make a request to Keycloak's token endpoint
-    //   const response = await axios.post(keycloakConfig.token_endpoint, null, {
-    //     params: {
-    //       client_id: keycloakConfig.client_id,
-    //       client_secret: keycloakConfig.client_secret,
-    //       grant_type: keycloakConfig.grant_type,
-    //       username: username,
-    //       password: password,
-    //     },
-    //     headers: {
-    //       "Content-Type": "application/x-www-form-urlencoded",
-    //     },
-    //   });
-
-    //   // Send back the access and refresh tokens
-    res.json("success");
-    // } catch (error) {
-    //   res.status(error.response.status).json({
-    //     error: "Invalid credentials",
-    //   });
-    // }
+      //   // Send back the access and refresh tokens
+      res.json(response.data);
+    } catch (error) {
+      res.status(error.response.status).json({
+        // data: error.response,
+        error: "Invalid credentials",
+      });
+    }
   });
 
   app.post("/signup", async (req, res) => {

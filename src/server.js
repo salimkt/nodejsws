@@ -1,6 +1,10 @@
 const WebSocket = require("ws");
-const { explaineCode, pushLogs, serializeMsg } = require("./commonUtils.js");
-const { startAppServer } = require("./app_server_utils.js");
+const {
+  explaineCode,
+  pushLogs,
+  serializeMsg,
+} = require("./utils/commonUtils.js");
+const { startAppServer } = require("./utils/app_server_utils.js");
 
 // const { serialize } = require("v8");
 
