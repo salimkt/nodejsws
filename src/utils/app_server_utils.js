@@ -92,20 +92,8 @@ const startAppServer = () => {
         { headers }
       );
       const existingUser = await db.collection("users").findOne({ username });
-      let uuid;
-      if (!existingUser.uuid) {
-        const decoded_jwt = decodeJWT(response.data.access_token);
-        const result = await db.collection("users").updateOne(
-          { username }, // The filter for the document you want to update
-          { $set: { uuid: decoded_jwt.sub } }
-        );
-      } else {
-        uuid = existingUser.uuid;
-      }
-
-      delete existingUser?.password;
       // Send back the access and refresh tokens
-      res.json({ ...response.data, ...existingUser, uuid });
+      res.json({ ...response.data, ...existingUser });
     } catch (error) {
       res.status(error.response.status).json({
         // data: error.response,
@@ -126,7 +114,6 @@ const startAppServer = () => {
       const existingUser = await db
         .collection("users")
         .findOne({ username, email });
-      axios;
       if (existingUser) {
         return res
           .status(400)
@@ -160,7 +147,9 @@ const startAppServer = () => {
         );
         delete req.body?.password;
         // Insert the user into the database
-        const result = await db.collection("users").insertOne(req.body);
+        const result = await db
+          .collection("users")
+          .insertOne({ ...req.body, uuid: user[0].id });
 
         // Send a success response
         res.status(201).json({
@@ -168,13 +157,6 @@ const startAppServer = () => {
           // userId: result.insertedId,
         });
       }
-
-      // Create a new user object
-      //   const newUser = {
-      //     username: username,
-      //     password: password, // In a real app, hash the password before saving
-      //     email: email,
-      //   };
     } catch (error) {
       // Handle errors during signup
       res.status(500).json({
@@ -191,6 +173,7 @@ const startAppServer = () => {
       const result_token = await db
         .collection("token_base")
         .insertOne({ ...req.body, token });
+      delete req.body.uuid;
       const result = await db.collection("users").updateOne(
         { uuid }, // Filter to find the document by uuid
         {
@@ -202,7 +185,6 @@ const startAppServer = () => {
       res.status(201).json({
         message: "Token successfully added",
         token,
-        // userId: result.insertedId,
       });
     } catch (error) {
       // Handle errors during signup
@@ -212,6 +194,33 @@ const startAppServer = () => {
       });
     }
   });
+
+  app.post("/deleteToken", async (req, res) => {
+    const { _id, uuid } = req.body;
+    try {
+      await db
+        .collection("token_base")
+        .deleteOne({ _id: ObjectId.createFromHexString(_id) });
+      await db.collection("users").updateOne(
+        { uuid }, // The filter for the document
+        {
+          $pull: {
+            tokens: { _id: ObjectId.createFromHexString(_id) }, // Remove the specific token from the tokens array
+          },
+        }
+      );
+      res.status(204).json({
+        message: "Token successfully deleted",
+      });
+    } catch (error) {
+      // Handle errors during signup
+      res.status(500).json({
+        message: "Error deleting Token",
+        error: JSON.stringify(error),
+      });
+    }
+  });
+
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
   });
