@@ -10,9 +10,9 @@ const PORT = 3000;
 app.use(bodyParser.json());
 app.use(cors());
 
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const { auth_url } = require("./configs");
-const { setToken } = require("./controller/helper");
+const { setToken, createToken, decodeJWT } = require("./controller/helper");
 // const uri =
 //   "mongodb+srv://salimkt25:Oc6ShumcbZkcNdpT@cluster0.hlnc7.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 const uri =
@@ -62,7 +62,7 @@ const startAppServer = () => {
     if (existingUser) {
       const result = await db
         .collection("public_key")
-        .updateOne({ username }, { $set: { p_key: p_key } });
+        .updateOne({ username }, { $set: { p_key } });
       // result ? res.status(200).json("success") : res.status(400).json("failed");
     } else {
       const result = await db.collection("public_key").insertOne(req.body);
@@ -76,7 +76,6 @@ const startAppServer = () => {
   // POST endpoint to handle login
   app.post("/signin", async (req, res) => {
     const { username, password } = req.body;
-    const u_name = console.log(req.body, auth_url);
     const headers = {
       "Content-Type": "application/x-www-form-urlencoded",
     };
@@ -92,9 +91,21 @@ const startAppServer = () => {
         },
         { headers }
       );
+      const existingUser = await db.collection("users").findOne({ username });
+      let uuid;
+      if (!existingUser.uuid) {
+        const decoded_jwt = decodeJWT(response.data.access_token);
+        const result = await db.collection("users").updateOne(
+          { username }, // The filter for the document you want to update
+          { $set: { uuid: decoded_jwt.sub } }
+        );
+      } else {
+        uuid = existingUser.uuid;
+      }
 
-      //   // Send back the access and refresh tokens
-      res.json(response.data);
+      delete existingUser?.password;
+      // Send back the access and refresh tokens
+      res.json({ ...response.data, ...existingUser, uuid });
     } catch (error) {
       res.status(error.response.status).json({
         // data: error.response,
@@ -104,7 +115,7 @@ const startAppServer = () => {
   });
 
   app.post("/signup", async (req, res) => {
-    const { username, email, first_name, last_name, company_name, password } =
+    const { username, email, firstName, lastName, companyName, password } =
       req.body;
     if (!acc_timeout) {
       await generateToken();
@@ -112,7 +123,9 @@ const startAppServer = () => {
     // if (!acc_timeout) res.status(500).json("server token generate failed");
     try {
       // Check if the user already exists
-      const existingUser = await db.collection("users").findOne({ email });
+      const existingUser = await db
+        .collection("users")
+        .findOne({ username, email });
       axios;
       if (existingUser) {
         return res
@@ -124,10 +137,10 @@ const startAppServer = () => {
           {
             username,
             enabled: true,
-            firstName: first_name,
+            firstName,
             email,
             emailVerified: true,
-            lastName: last_name,
+            lastName,
           }
         );
 
@@ -145,6 +158,7 @@ const startAppServer = () => {
             temporary: false,
           }
         );
+        delete req.body?.password;
         // Insert the user into the database
         const result = await db.collection("users").insertOne(req.body);
 
@@ -170,6 +184,34 @@ const startAppServer = () => {
     }
   });
 
+  app.post("/addToken", async (req, res) => {
+    const { tokenName, created, expire, uuid } = req.body;
+    try {
+      const token = createToken();
+      const result_token = await db
+        .collection("token_base")
+        .insertOne({ ...req.body, token });
+      const result = await db.collection("users").updateOne(
+        { uuid }, // Filter to find the document by uuid
+        {
+          $push: {
+            tokens: { ...req.body, _id: result_token.insertedId }, // Push the new object to the tokens array
+          },
+        } // Create the document if it doesn't exist
+      );
+      res.status(201).json({
+        message: "Token successfully added",
+        token,
+        // userId: result.insertedId,
+      });
+    } catch (error) {
+      // Handle errors during signup
+      res.status(500).json({
+        message: "Error adding Token",
+        error: JSON.stringify(error),
+      });
+    }
+  });
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
   });
