@@ -2,11 +2,13 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const crypto = require("crypto");
 const axios = require("axios");
+const cors = require("cors");
 
 const app = express();
 // configure port of app server
 const PORT = 3000;
 app.use(bodyParser.json());
+app.use(cors());
 
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const { auth_url } = require("./configs");
@@ -74,7 +76,7 @@ const startAppServer = () => {
   // POST endpoint to handle login
   app.post("/signin", async (req, res) => {
     const { username, password } = req.body;
-    console.log(req.body, auth_url);
+    const u_name = console.log(req.body, auth_url);
     const headers = {
       "Content-Type": "application/x-www-form-urlencoded",
     };
