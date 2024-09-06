@@ -3,6 +3,8 @@ const bodyParser = require("body-parser");
 const crypto = require("crypto");
 const axios = require("axios");
 const cors = require("cors");
+const session = require("express-session");
+const Keycloak = require("keycloak-connect");
 
 const app = express();
 // configure port of app server
@@ -10,6 +12,41 @@ const PORT = 3000;
 app.use(bodyParser.json());
 app.use(cors());
 
+/**
+ * Keycloak setup
+ */
+// Set up express-session to manage sessions
+const memoryStore = new session.MemoryStore();
+app.use(
+  session({
+    secret: "2f7eb4f2d9c5f37819e8f8a1e9ed04bfed207fce217a4f75d66ca2bd8d96683d",
+    resave: false,
+    saveUninitialized: true,
+    store: memoryStore,
+  })
+);
+
+// Initialize Keycloak middleware
+const keycloak = new Keycloak(
+  { store: memoryStore },
+  {
+    realm: "debugtrail",
+    "auth-server-url": "https://us1-dev.fohik.com/auth",
+    "ssl-required": "external",
+    resource: "node-api-client",
+    credentials: {
+      secret: "your-client-secret",
+    },
+    "confidential-port": 0,
+  }
+);
+
+// Apply Keycloak middleware
+app.use(keycloak.middleware());
+
+/**
+ * Database setup
+ */
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const { auth_url } = require("./configs");
 const { setToken, createToken, decodeJWT } = require("./controller/helper");
@@ -36,6 +73,9 @@ client
     console.error("Failed to connect to MongoDB", err);
   });
 
+/**
+ * Encryption config
+ */
 // Step 1: Generate Diffie-Hellman keys on the server
 const serverDH = crypto.createDiffieHellman(2048);
 const serverPublicKey = serverDH.generateKeys();
@@ -166,7 +206,7 @@ const startAppServer = () => {
     }
   });
 
-  app.post("/addToken", async (req, res) => {
+  app.post("/addToken", keycloak.protect(), async (req, res) => {
     const { tokenName, created, expire, uuid } = req.body;
     try {
       const token = createToken();
@@ -195,7 +235,7 @@ const startAppServer = () => {
     }
   });
 
-  app.post("/deleteToken", async (req, res) => {
+  app.post("/deleteToken", keycloak.protect(), async (req, res) => {
     const { _id, uuid } = req.body;
     try {
       await db
@@ -209,7 +249,7 @@ const startAppServer = () => {
           },
         }
       );
-      res.status(204).json({
+      res.status(203).json({
         message: "Token successfully deleted",
       });
     } catch (error) {
