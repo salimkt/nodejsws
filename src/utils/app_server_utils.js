@@ -50,6 +50,7 @@ app.use(keycloak.middleware());
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const { auth_url } = require("./configs");
 const { setToken, createToken, decodeJWT } = require("./controller/helper");
+const { decryptPassword } = require("./controller/crypto_utils");
 // const uri =
 //   "mongodb+srv://salimkt25:Oc6ShumcbZkcNdpT@cluster0.hlnc7.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 const uri =
@@ -77,8 +78,22 @@ client
  * Encryption config
  */
 // Step 1: Generate Diffie-Hellman keys on the server
-const serverDH = crypto.createDiffieHellman(2048);
-const serverPublicKey = serverDH.generateKeys();
+
+const serverECDH = crypto.createECDH("prime256v1");
+const serverPublicKey = serverECDH.generateKeys("hex");
+
+function deriveSharedSecret(clientPublicKeyHex) {
+  // const serverECDH = crypto.createECDH("prime256v1");
+  // const serverPublicKey = serverECDH.generateKeys("hex"); // Generate server key pair
+
+  // Client's public key received as a hex string
+  const clientPublicKey = Buffer.from(clientPublicKeyHex, "hex");
+
+  // Compute the shared secret using the server's private key and client's public key
+  const sharedSecret = serverECDH.computeSecret(clientPublicKey);
+
+  return sharedSecret; // Use this shared secret for AES decryption
+}
 
 //Flags
 let acc_timeout = null;
@@ -93,7 +108,7 @@ let token = {
 const startAppServer = () => {
   app.post("/key_exchange", async (req, res) => {
     const { username, p_key } = req.body;
-    const serverSharedSecret = serverDH.computeSecret(p_key);
+    const serverSharedSecret = deriveSharedSecret(p_key);
     console.log(serverSharedSecret.toString("hex"));
 
     const existingUser = await db
@@ -109,17 +124,28 @@ const startAppServer = () => {
       // result ? res.status(200).json("success") : res.status(400).json("failed");
     }
     // const serverPublicKey = serverDH.generateKeys();
-    res.json(
-      JSON.stringify({ serverPublicKey: serverPublicKey.toString("hex") })
-    );
+    res.json({ serverPublicKey: serverPublicKey.toString("hex") });
   });
   // POST endpoint to handle login
   app.post("/signin", async (req, res) => {
-    const { username, password } = req.body;
+    const { username, password, iv } = req.body;
+    const key = await db.collection("public_key").findOne({ username });
+
     const headers = {
       "Content-Type": "application/x-www-form-urlencoded",
     };
     try {
+      // try {
+      //   const pwd = decryptPassword(
+      //     password,
+      //     iv,
+      //     deriveSharedSecret(key.p_key)
+      //   );
+      //   console.log(pwd);
+      // } catch (e) {
+      //   console.log(JSON.stringify(e));
+      // }
+
       // Make a request to Keycloak's token endpoint
       const response = await axios.post(
         auth_url + "debugtrail" + "/protocol/openid-connect/token",
@@ -135,8 +161,8 @@ const startAppServer = () => {
       // Send back the access and refresh tokens
       res.json({ ...response.data, ...existingUser });
     } catch (error) {
-      res.status(error.response.status).json({
-        // data: error.response,
+      res.status(400).json({
+        data: error.response,
         error: "Invalid credentials",
       });
     }
@@ -225,6 +251,7 @@ const startAppServer = () => {
       res.status(201).json({
         message: "Token successfully added",
         token,
+        _id: result_token.insertedId,
       });
     } catch (error) {
       // Handle errors during signup
@@ -308,4 +335,9 @@ const refreshAuth = () => {
   }, 60000);
 };
 
-module.exports = { startAppServer };
+const verifyKey = async (key) => {
+  const token = await db.collection("token_base").findOne({ token: key });
+  return token?.expire < new Date().getTime();
+};
+
+module.exports = { startAppServer, verifyKey };
