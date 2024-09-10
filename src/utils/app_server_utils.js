@@ -336,7 +336,6 @@ const refreshAuth = () => {
 };
 
 const verifyKey = async (key) => {
-  // const token = await db.collection("token_base").findOne({ token: key });
   const result = await db.collection("token_base").findOneAndUpdate(
     { token: key }, // Filter to find the document by _id
     {
@@ -344,7 +343,14 @@ const verifyKey = async (key) => {
     },
     { upsert: false } // Don't insert a new document, just update the existing one
   );
-  console.log(result?.expire > new Date().getTime());
+  await db.collection("users").updateOne(
+    {
+      uuid: result?.uuid,
+      "tokens._id": result?._id,
+    }, // Filter to find the document by uuid
+    { $set: { "tokens.$.last_used": new Date().getTime() } } // Update the 'lastUsed' field of the matched array object
+  );
+  // console.log(result?.expire > new Date().getTime(), res);
   return result?.expire > new Date().getTime();
 };
 
