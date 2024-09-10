@@ -238,7 +238,7 @@ const startAppServer = () => {
       const token = createToken();
       const result_token = await db
         .collection("token_base")
-        .insertOne({ ...req.body, token });
+        .insertOne({ ...req.body, last_used: null, token });
       delete req.body.uuid;
       const result = await db.collection("users").updateOne(
         { uuid }, // Filter to find the document by uuid
@@ -336,8 +336,16 @@ const refreshAuth = () => {
 };
 
 const verifyKey = async (key) => {
-  const token = await db.collection("token_base").findOne({ token: key });
-  return token?.expire < new Date().getTime();
+  // const token = await db.collection("token_base").findOne({ token: key });
+  const result = await db.collection("token_base").findOneAndUpdate(
+    { token: key }, // Filter to find the document by _id
+    {
+      $set: { last_used: new Date().getTime() }, // Update the 'lastUsed' field
+    },
+    { upsert: false } // Don't insert a new document, just update the existing one
+  );
+  console.log(result?.expire > new Date().getTime());
+  return result?.expire > new Date().getTime();
 };
 
 module.exports = { startAppServer, verifyKey };
