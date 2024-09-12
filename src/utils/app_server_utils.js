@@ -3,8 +3,9 @@ const bodyParser = require("body-parser");
 const crypto = require("crypto");
 const axios = require("axios");
 const cors = require("cors");
-const session = require("express-session");
-const Keycloak = require("keycloak-connect");
+// const session = require("express-session");
+// const Keycloak = require("keycloak-connect");
+const jwt = require("jsonwebtoken");
 
 const app = express();
 // configure port of app server
@@ -16,33 +17,89 @@ app.use(cors());
  * Keycloak setup
  */
 // Set up express-session to manage sessions
-const memoryStore = new session.MemoryStore();
-app.use(
-  session({
-    secret: "2f7eb4f2d9c5f37819e8f8a1e9ed04bfed207fce217a4f75d66ca2bd8d96683d",
-    resave: false,
-    saveUninitialized: true,
-    store: memoryStore,
-  })
-);
+// const memoryStore = new session.MemoryStore();
+// app.use(
+//   session({
+//     secret: "2f7eb4f2d9c5f37819e8f8a1e9ed04bfed207fce217a4f75d66ca2bd8d96683d",
+//     resave: false,
+//     saveUninitialized: true,
+//     store: memoryStore,
+//   })
+// );
 
-// Initialize Keycloak middleware
-const keycloak = new Keycloak(
-  { store: memoryStore },
-  {
-    realm: "debugtrail",
-    "auth-server-url": "https://us1-dev.fohik.com/auth",
-    "ssl-required": "external",
-    resource: "node-api-client",
-    credentials: {
-      secret: "your-client-secret",
-    },
-    "confidential-port": 0,
+// // Initialize Keycloak middleware
+// const keycloak = new Keycloak(
+//   { store: memoryStore },
+//   {
+//     realm: "debugtrail",
+//     "auth-server-url": "https://us1-dev.fohik.com/auth",
+//     "ssl-required": "external",
+//     resource: "node-api-client",
+//     credentials: {
+//       secret: "your-client-secret",
+//     },
+//     "confidential-port": 0,
+//   }
+// );
+
+// // Apply Keycloak middleware
+// app.use(keycloak.middleware());
+
+// Keycloak Configuration
+const keycloakConfig = {
+  realm: "debugtrail",
+  authServerUrl: "https://us1-dev.fohik.com/auth",
+  clientId: "debugtrail",
+};
+
+// Function to fetch Keycloak's public key
+async function getKeycloakPublicKey() {
+  try {
+    const url = `${keycloakConfig.authServerUrl}/realms/${keycloakConfig.realm}/protocol/openid-connect/certs`;
+    const response = await axios.get(url);
+    return response.data.keys[0].x5c[0]; // Return the public key (certificate)
+  } catch (error) {
+    throw new Error("Error fetching Keycloak public key");
   }
-);
+}
 
-// Apply Keycloak middleware
-app.use(keycloak.middleware());
+// Function to verify the JWT token using the public key
+async function verifyToken(token) {
+  const publicKey = await getKeycloakPublicKey();
+  return new Promise((resolve, reject) => {
+    jwt.verify(
+      token,
+      `-----BEGIN CERTIFICATE-----\n${publicKey}\n-----END CERTIFICATE-----`,
+      { algorithms: ["RS256"] },
+      (err, decoded) => {
+        if (err) {
+          reject(err); // Token verification failed
+        } else {
+          resolve(decoded); // Token is valid
+        }
+      }
+    );
+  });
+}
+
+// Middleware to protect routes and verify token
+async function keycloakAuthMiddleware(req, res, next) {
+  const authHeader = req.headers["authorization"];
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(403).json({ message: "Forbidden: No token provided" });
+  }
+  const token = authHeader.split(" ")[1]; // Extract token from "Bearer <token>"
+
+  try {
+    const decodedToken = await verifyToken(token);
+    req.user = decodedToken; // Attach decoded token to request object
+    next(); // Proceed to next middleware or route handler
+  } catch (error) {
+    console.error("Invalid token:", error.message);
+    return res.status(403).json({ message: "Forbidden: Invalid token" });
+  }
+}
 
 /**
  * Database setup
@@ -232,7 +289,38 @@ const startAppServer = () => {
     }
   });
 
-  app.post("/addToken", keycloak.protect(), async (req, res) => {
+  app.post("/refreshAuth", async (req, res) => {
+    try {
+      const { refresh_token } = req.body;
+      // console.log("refresh_token__", refresh_token);
+      const headers = {
+        "Content-Type": "application/x-www-form-urlencoded",
+      };
+      const response = await axios.post(
+        auth_url + "debugtrail" + "/protocol/openid-connect/token",
+        {
+          grant_type: "refresh_token",
+          client_id: "debugtrail",
+          refresh_token: refresh_token,
+        },
+        { headers }
+      );
+
+      res.status(200).json({
+        ...response.data,
+        // userId: result.insertedId,
+      });
+    } catch (error) {
+      // console.log(error);
+      // Handle errors during signup
+      res.status(500).json({
+        message: "Error registering user",
+        error: error.response,
+      });
+    }
+  });
+
+  app.post("/addToken", keycloakAuthMiddleware, async (req, res) => {
     const { tokenName, created, expire, uuid } = req.body;
     try {
       const token = createToken();
@@ -262,7 +350,7 @@ const startAppServer = () => {
     }
   });
 
-  app.post("/deleteToken", keycloak.protect(), async (req, res) => {
+  app.post("/deleteToken", keycloakAuthMiddleware, async (req, res) => {
     const { _id, uuid } = req.body;
     try {
       await db
