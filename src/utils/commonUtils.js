@@ -11,7 +11,7 @@ const pushLogs = (message, epochNanoseconds) => {
       streams: [
         {
           stream: {
-            app: "mobile", //Change app name
+            app: "ncs_client", //Change app name
           },
           values: [[epochNanoseconds + "", message]],
         },

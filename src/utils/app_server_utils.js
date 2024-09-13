@@ -3,8 +3,6 @@ const bodyParser = require("body-parser");
 const crypto = require("crypto");
 const axios = require("axios");
 const cors = require("cors");
-// const session = require("express-session");
-// const Keycloak = require("keycloak-connect");
 const jwt = require("jsonwebtoken");
 
 const app = express();
