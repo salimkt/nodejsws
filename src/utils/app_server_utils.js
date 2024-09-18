@@ -106,6 +106,7 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const { auth_url } = require("./configs");
 const { setToken, createToken, decodeJWT } = require("./controller/helper");
 const { decryptPassword } = require("./controller/crypto_utils");
+const { fetchLokiLogs } = require("./commonUtils");
 // const uri =
 //   "mongodb+srv://salimkt25:Oc6ShumcbZkcNdpT@cluster0.hlnc7.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 const uri =
@@ -369,6 +370,20 @@ const startAppServer = () => {
       // Handle errors during signup
       res.status(500).json({
         message: "Error deleting Token",
+        error: JSON.stringify(error),
+      });
+    }
+  });
+
+  app.post("/queryLogs", keycloakAuthMiddleware, async (req, res) => {
+    const { app, start, end } = req.body;
+    try {
+      const response = await fetchLokiLogs(app, start, end);
+      res.status(203).json({ logs: response.data });
+    } catch (error) {
+      // Handle errors during signup
+      res.status(500).json({
+        message: "Error",
         error: JSON.stringify(error),
       });
     }

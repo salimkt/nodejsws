@@ -45,4 +45,26 @@ const serializeMsg = (msg) => {
   // return msg;
 };
 
-module.exports = { pushLogs, explaineCode, serializeMsg };
+async function fetchLokiLogs(appName, start, end) {
+  // console.log("Lokilog---------apifun----", appName);
+  const baseUrl = "https://grafana.netstratum.com/loki/api/v1/query_range"; // Replace with your Loki URL
+  // LogQL query to fetch logs with app="mobile"
+  const query = `{app="${appName}"}`;
+  // Time range (in nanoseconds since the epoch)
+  // const start = new Date().getTime() * 1e6 - 60 * 1e9; // 60 seconds ago
+  // const end = new Date().getTime() * 1e6; // Now
+  const url = `${baseUrl}?query=${encodeURIComponent(
+    query
+  )}&start=${start}&end=${end}&limit=100`;
+
+  try {
+    const response = await axios.get(url);
+    console.log("Loki data----------", response.data); // Logs fetched from Loki
+    return response;
+  } catch (error) {
+    console.error("Failed to fetch logs:", error);
+    return error;
+  }
+}
+
+module.exports = { pushLogs, explaineCode, serializeMsg, fetchLokiLogs };
