@@ -106,7 +106,7 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const { auth_url } = require("./configs");
 const { setToken, createToken, decodeJWT } = require("./controller/helper");
 const { decryptPassword } = require("./controller/crypto_utils");
-const { fetchLokiLogs } = require("./commonUtils");
+const { fetchLokiLogs, fetchLokiLabelValue } = require("./commonUtils");
 // const uri =
 //   "mongodb+srv://salimkt25:Oc6ShumcbZkcNdpT@cluster0.hlnc7.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 const uri =
@@ -389,6 +389,20 @@ const startAppServer = () => {
     }
   });
 
+  app.post("/queryLabelValue", keycloakAuthMiddleware, async (req, res) => {
+    const { start, end } = req.body;
+    try {
+      const response = await fetchLokiLabelValue(start, end);
+      res.status(203).json({ logs: response.data });
+    } catch (error) {
+      // Handle errors during signup
+      res.status(500).json({
+        message: "Error",
+        error: JSON.stringify(error),
+      });
+    }
+  });
+
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
   });
@@ -444,6 +458,10 @@ const verifyKey = async (key) => {
     },
     { upsert: false } // Don't insert a new document, just update the existing one
   );
+
+
+  const resultUuid = result?.uuid
+  const userData = await db.collection("users").findOne({ uuid: resultUuid })
   await db.collection("users").updateOne(
     {
       uuid: result?.uuid,
@@ -452,7 +470,7 @@ const verifyKey = async (key) => {
     { $set: { "tokens.$.last_used": new Date().getTime() } } // Update the 'lastUsed' field of the matched array object
   );
   // console.log(result?.expire > new Date().getTime(), res);
-  return result?.expire > new Date().getTime();
+  return { result: result?.expire > new Date().getTime(), companyName: userData?.company_name };
 };
 
 module.exports = { startAppServer, verifyKey };

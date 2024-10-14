@@ -5,18 +5,31 @@
   </head>
   <body>
     <h1>WebSocket Client</h1>
+    
     <button onclick="connectWebSocket()">Connect</button>
-    <button onclick="sendMessage()">Send Message</button>
     <button onclick="closeConnection()">Close Connection</button>
+    <div style="display: flex; flex-direction: column; width: 200px; padding-top: 10px;" >
+      <button onclick="sendMessage()">Send Message</button>
+      <input type="text" name="txt" value="" onchange="onChangeHandler(this.value)" placeholder="type here... ">
+    </div>
+   
+   
     <div id="messages"></div>
+
 
     <script>
       let ws;
+      let text;
+
+      function onChangeHandler(data){
+        console.log("Test------------",data)
+        text=data;
+      }
 
       function connectWebSocket() {
         ws = new WebSocket(
           "ws://localhost:8030",
-          "2ae554d28d6a6b707749e11cb50b9555b0a0a8a2b92646b4543ec9cc458b74fd"
+          "e5279a2829e65bdb5c39aeaa1768373ffd8261052b84ff4d6eb89d635820b646"
         );
 
         ws.onopen = function () {
@@ -38,13 +51,16 @@
 
       function sendMessage() {
         if (ws && ws.readyState === WebSocket.OPEN) {
-          const message = { msg: "Hello Server", time: Date.now() * 1000000 };
+          console.log("test2---------",text)
+          const message = { msg: text, time: Date.now() * 1000000 };
           ws.send(JSON.stringify(message));
           document.getElementById(
             "messages"
           ).innerHTML += `<p>Sent: ${message}</p>`;
         }
       }
+
+      
 
       function closeConnection() {
         if (ws) {

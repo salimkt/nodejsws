@@ -15,7 +15,9 @@ const wss = new WebSocket.Server({ port: 8030 });
 // Event listener for new connections
 wss.on("connection", async function connection(ws, req) {
   const auth = req.headers["sec-websocket-protocol"];
-  if (!(await verifyKey(auth))) {
+  const verifyKeyRes = await verifyKey(auth)
+  const companyName = verifyKeyRes.companyName
+  if (!(verifyKeyRes?.result)) {
     ws.close(4001, "Unauthorized access");
     ws.terminate();
   }
@@ -32,10 +34,10 @@ wss.on("connection", async function connection(ws, req) {
         ...msg,
         description: explaineCode(msg.code),
       };
-      pushLogs(serializeMsg(msg), msg?.time);
+      pushLogs(serializeMsg(msg), msg?.time, companyName);
       return;
     }
-    pushLogs(serializeMsg(msg), msg.time);
+    pushLogs(serializeMsg(msg), msg.time, companyName);
     // Broadcast the received message to all connected clients
     // wss.clients.forEach(function each(client) {
     //   if (client.readyState === WebSocket.OPEN) {
