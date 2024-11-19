@@ -1,18 +1,18 @@
 const axios = require("axios");
 const { desc_table } = require("../constants.js");
 
-const pushLogs = (message, epochNanoseconds, companyName) => {
-  console.log("Compnay name in pushlogs------", companyName)
+const pushLogs = (message, epochNanoseconds, companyName, appName) => {
+  console.log("Compnay name in pushlogs------", companyName);
   // axios.get("http://api.apis.guru/v2/list.json").then((res) => {
   //   console.log(res);
   // });
-  console.log(message);
+  // console.log(appName, message);
   axios
     .post("https://grafana.netstratum.com/loki/api/v1/push", {
       streams: [
         {
           stream: {
-            app: companyName + "mobile", //Change app name
+            app: companyName + "_" + appName, //Change app name
           },
           values: [[epochNanoseconds + "", message]],
         },
@@ -24,7 +24,7 @@ const pushLogs = (message, epochNanoseconds, companyName) => {
     .catch(() => {
       console.log("Grafana fail");
       setTimeout(() => {
-        pushLogs(message, epochNanoseconds);
+        pushLogs(message, epochNanoseconds, companyName, appName);
       }, 1000);
     });
 };
@@ -37,8 +37,9 @@ const serializeMsg = (msg) => {
   let formattedString = "";
   for (const key in msg) {
     if (msg.hasOwnProperty(key)) {
-      formattedString += `${key}=${typeof msg[key] == "string" ? msg[key] : JSON.stringify(msg[key])
-        } `;
+      formattedString += `${key}=${
+        typeof msg[key] == "string" ? msg[key] : JSON.stringify(msg[key])
+      } `;
     }
   }
   return formattedString;
@@ -68,7 +69,6 @@ async function fetchLokiLogs(appName, start, end) {
 }
 
 async function fetchLokiLabelValue(start, end) {
-
   const url = `https://grafana.netstratum.com/loki/api/v1/label/app/values?start=${start}&end=${end}`; // Replace with your Loki URL
 
   try {
@@ -81,4 +81,10 @@ async function fetchLokiLabelValue(start, end) {
   }
 }
 
-module.exports = { pushLogs, explaineCode, serializeMsg, fetchLokiLogs, fetchLokiLabelValue };
+module.exports = {
+  pushLogs,
+  explaineCode,
+  serializeMsg,
+  fetchLokiLogs,
+  fetchLokiLabelValue,
+};

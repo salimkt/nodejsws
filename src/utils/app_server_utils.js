@@ -162,7 +162,7 @@ let token = {
 };
 
 const startAppServer = () => {
-  app.post("/key_exchange", async (req, res) => {
+  app.post("/v1/key_exchange", async (req, res) => {
     const { username, p_key } = req.body;
     const serverSharedSecret = deriveSharedSecret(p_key);
     console.log(serverSharedSecret.toString("hex"));
@@ -183,14 +183,14 @@ const startAppServer = () => {
     res.json({ serverPublicKey: serverPublicKey.toString("hex") });
   });
   // POST endpoint to handle login
-  app.post("/signin", async (req, res) => {
-    const { username, password, iv } = req.body;
-    const key = await db.collection("public_key").findOne({ username });
-
-    const headers = {
-      "Content-Type": "application/x-www-form-urlencoded",
-    };
+  app.post("/v1/signin", async (req, res) => {
     try {
+      const { username, password, iv } = req.body;
+      const key = await db.collection("public_key").findOne({ username });
+
+      const headers = {
+        "Content-Type": "application/x-www-form-urlencoded",
+      };
       // try {
       //   const pwd = decryptPassword(
       //     password,
@@ -224,7 +224,7 @@ const startAppServer = () => {
     }
   });
 
-  app.post("/signup", async (req, res) => {
+  app.post("/v1/signup", async (req, res) => {
     const { username, email, firstName, lastName, companyName, password } =
       req.body;
     if (!acc_timeout) {
@@ -288,7 +288,7 @@ const startAppServer = () => {
     }
   });
 
-  app.post("/refreshAuth", async (req, res) => {
+  app.post("/v1/refreshAuth", async (req, res) => {
     try {
       const { refresh_token } = req.body;
       // console.log("refresh_token__", refresh_token);
@@ -319,7 +319,7 @@ const startAppServer = () => {
     }
   });
 
-  app.post("/addToken", keycloakAuthMiddleware, async (req, res) => {
+  app.post("/v1/addToken", keycloakAuthMiddleware, async (req, res) => {
     const { tokenName, created, expire, uuid } = req.body;
     try {
       const token = createToken();
@@ -349,7 +349,7 @@ const startAppServer = () => {
     }
   });
 
-  app.post("/deleteToken", keycloakAuthMiddleware, async (req, res) => {
+  app.post("/v1/deleteToken", keycloakAuthMiddleware, async (req, res) => {
     const { _id, uuid } = req.body;
     try {
       await db
@@ -375,7 +375,7 @@ const startAppServer = () => {
     }
   });
 
-  app.post("/queryLogs", keycloakAuthMiddleware, async (req, res) => {
+  app.post("/v1/queryLogs", keycloakAuthMiddleware, async (req, res) => {
     const { app, start, end } = req.body;
     try {
       const response = await fetchLokiLogs(app, start, end);
@@ -389,7 +389,7 @@ const startAppServer = () => {
     }
   });
 
-  app.post("/queryLabelValue", keycloakAuthMiddleware, async (req, res) => {
+  app.post("/v1/queryLabelValue", keycloakAuthMiddleware, async (req, res) => {
     const { start, end } = req.body;
     try {
       const response = await fetchLokiLabelValue(start, end);
@@ -459,9 +459,9 @@ const verifyKey = async (key) => {
     { upsert: false } // Don't insert a new document, just update the existing one
   );
 
+  const resultUuid = result?.uuid;
 
-  const resultUuid = result?.uuid
-  const userData = await db.collection("users").findOne({ uuid: resultUuid })
+  const userData = await db.collection("users").findOne({ uuid: resultUuid });
   await db.collection("users").updateOne(
     {
       uuid: result?.uuid,
@@ -470,7 +470,11 @@ const verifyKey = async (key) => {
     { $set: { "tokens.$.last_used": new Date().getTime() } } // Update the 'lastUsed' field of the matched array object
   );
   // console.log(result?.expire > new Date().getTime(), res);
-  return { result: result?.expire > new Date().getTime(), companyName: userData?.company_name };
+  return {
+    result: result?.expire > new Date().getTime(),
+    companyName: userData?.company_name,
+    appName: result?.appName,
+  };
 };
 
 module.exports = { startAppServer, verifyKey };
