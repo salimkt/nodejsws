@@ -2,7 +2,6 @@ const axios = require("axios");
 const { desc_table } = require("../constants.js");
 
 const pushLogs = (message, epochNanoseconds, companyName, appName) => {
-  console.log("Compnay name in pushlogs------", companyName);
   // axios.get("http://api.apis.guru/v2/list.json").then((res) => {
   //   console.log(res);
   // });
@@ -68,6 +67,27 @@ async function fetchLokiLogs(appName, start, end) {
   }
 }
 
+async function searchLokiLogs(appName, query, action, start, end) {
+  const query = `{app="${appName}"|= "${query ?? ""}" |= "${action ?? ""}"}`;
+
+  // console.log("Lokilog---------apifun----", appName);
+  const baseUrl = "https://grafana.netstratum.com/loki/api/v1/query_range"; // Replace with your Loki URL
+  // LogQL query to fetch logs with app="mobile"
+  const url = `${baseUrl}?query=${encodeURIComponent(
+    query
+  )}&start=${start}&end=${end}&limit=100`;
+  console.log(url);
+
+  try {
+    const response = await axios.get(url);
+    console.log("Loki data----------", response.data); // Logs fetched from Loki
+    return response;
+  } catch (error) {
+    console.error("Failed to fetch logs:", error);
+    return error;
+  }
+}
+
 async function fetchLokiLabelValue(start, end) {
   const url = `https://grafana.netstratum.com/loki/api/v1/label/app/values?start=${start}&end=${end}`; // Replace with your Loki URL
 
@@ -87,4 +107,5 @@ module.exports = {
   serializeMsg,
   fetchLokiLogs,
   fetchLokiLabelValue,
+  searchLokiLogs,
 };
