@@ -380,10 +380,16 @@ const startAppServer = () => {
   });
 
   app.post("/v1/queryLogs", keycloakAuthMiddleware, async (req, res) => {
-    const { app, start, end } = req.body;
+    const { app, start, end, search_query, action } = req.body;
     try {
-      const response = await fetchLokiLogs(app, start, end);
-      res.status(203).json({ logs: response.data });
+      const response = await searchLokiLogs(
+        app,
+        start,
+        end,
+        search_query,
+        action
+      );
+      res.status(203).json(response.data.result[0]?.values ?? []);
     } catch (error) {
       // Handle errors during signup
       res.status(500).json({

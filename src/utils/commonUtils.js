@@ -56,6 +56,7 @@ async function fetchLokiLogs(appName, start, end) {
   const url = `${baseUrl}?query=${encodeURIComponent(
     query
   )}&start=${start}&end=${end}&limit=100`;
+  console.log(url);
 
   try {
     const response = await axios.get(url);
@@ -67,24 +68,40 @@ async function fetchLokiLogs(appName, start, end) {
   }
 }
 
-async function searchLokiLogs(appName, query, action, start, end) {
-  const query = `{app="${appName}"|= "${query ?? ""}" |= "${action ?? ""}"}`;
-
-  // console.log("Lokilog---------apifun----", appName);
-  const baseUrl = "https://grafana.netstratum.com/loki/api/v1/query_range"; // Replace with your Loki URL
-  // LogQL query to fetch logs with app="mobile"
-  const url = `${baseUrl}?query=${encodeURIComponent(
-    query
-  )}&start=${start}&end=${end}&limit=100`;
-  console.log(url);
-
+async function searchLokiLogs(
+  appName,
+  start,
+  end,
+  search_query = "",
+  action = ""
+) {
   try {
+    // Construct the LogQL query
+    const query = `{app="${appName}"}|= "${search_query}" |= "${action}"`;
+
+    // Define the base URL for Loki
+    const baseUrl = "https://grafana.netstratum.com/loki/api/v1/query_range";
+
+    // Encode the query and build the full URL
+    const url = `${baseUrl}?query=${encodeURIComponent(
+      query
+    )}&start=${start}&end=${end}&limit=100`;
+    console.log("Generated Loki URL:", url);
+
+    // Fetch logs from Loki
     const response = await axios.get(url);
-    console.log("Loki data----------", response.data); // Logs fetched from Loki
-    return response;
+
+    // Log and return the data
+    console.log("Fetched Loki Logs:", response.data);
+    return response.data; // Return only the logs data for better usability
   } catch (error) {
-    console.error("Failed to fetch logs:", error);
-    return error;
+    // Log error details and re-throw the error
+    console.error(
+      "Failed to fetch logs:",
+      error.message,
+      error.response?.data || ""
+    );
+    throw error; // Propagate the error to the caller for proper handling
   }
 }
 
