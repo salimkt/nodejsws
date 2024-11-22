@@ -380,14 +380,14 @@ const startAppServer = () => {
   });
 
   app.post("/v1/queryLogs", keycloakAuthMiddleware, async (req, res) => {
-    const { app, start, end, search_query, action } = req.body;
+    const { app, start, end, limit, filters } = req.body;
     try {
       const response = await searchLokiLogs(
         app,
         start,
         end,
-        search_query,
-        action
+        limit ?? 10,
+        filters ?? []
       );
       res.status(203).json(response.data.result[0]?.values ?? []);
     } catch (error) {

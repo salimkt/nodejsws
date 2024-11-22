@@ -68,25 +68,20 @@ async function fetchLokiLogs(appName, start, end) {
   }
 }
 
-async function searchLokiLogs(
-  appName,
-  start,
-  end,
-  search_query = "",
-  action = ""
-) {
+async function searchLokiLogs(appName, start, end, limit = 10, filters = []) {
   try {
     // Construct the LogQL query
-    const query = `{app="${appName}"}|= "${search_query}" |= "${action}"`;
-
+    let query = `{app="${appName}"}`;
+    filters.forEach((filter) => {
+      query += ` |= "${filter}"`; // Add each filter dynamically
+    });
     // Define the base URL for Loki
     const baseUrl = "https://grafana.netstratum.com/loki/api/v1/query_range";
 
     // Encode the query and build the full URL
     const url = `${baseUrl}?query=${encodeURIComponent(
       query
-    )}&start=${start}&end=${end}&limit=100`;
-    console.log("Generated Loki URL:", url);
+    )}&start=${start}&end=${end}&limit=${limit}`;
 
     // Fetch logs from Loki
     const response = await axios.get(url);
