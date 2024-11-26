@@ -308,9 +308,14 @@ const startAppServer = () => {
         },
         { headers }
       );
+      const user = decodeJWT(response.data.access_token);
+      const existingUser = await db
+        .collection("users")
+        .findOne({ username: user.preferred_username });
 
       res.status(200).json({
         ...response.data,
+        user: existingUser,
         // userId: result.insertedId,
       });
     } catch (error) {
