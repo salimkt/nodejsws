@@ -15,7 +15,12 @@ const wss = new WebSocket.Server({ port: 8030 });
 // Event listener for new connections
 wss.on("connection", async function connection(ws, req) {
   const auth = req.headers["sec-websocket-protocol"];
-  const verifyKeyRes = await verifyKey(auth);
+  let verifyKeyRes;
+  try {
+    verifyKeyRes = await verifyKey(auth);
+  } catch (e) {
+    console.log(e);
+  }
   const companyName = verifyKeyRes.companyName;
   const appName = verifyKeyRes.appName;
 

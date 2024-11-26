@@ -310,7 +310,7 @@ const startAppServer = () => {
       );
       const user = decodeJWT(response.data.access_token);
       const existingUser = await db
-        .collection("users")
+        ?.collection("users")
         .findOne({ username: user.preferred_username });
 
       res.status(200).json({
@@ -322,7 +322,7 @@ const startAppServer = () => {
       // console.log(error);
       // Handle errors during signup
       res.status(500).json({
-        message: "Error registering user",
+        message: "Error refresh token",
         error: error.response,
       });
     }
@@ -477,8 +477,10 @@ const verifyKey = async (key) => {
 
     const resultUuid = result?.uuid;
 
-    const userData = await db.collection("users").findOne({ uuid: resultUuid });
-    await db.collection("users").updateOne(
+    const userData = await db
+      ?.collection("users")
+      .findOne({ uuid: resultUuid });
+    await db?.collection("users").updateOne(
       {
         uuid: result?.uuid,
         "tokens._id": result?._id,
@@ -493,6 +495,7 @@ const verifyKey = async (key) => {
     };
   } catch (e) {
     console.log(e);
+    return verifyKey(key);
   }
 };
 
